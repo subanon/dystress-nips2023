@@ -46,7 +46,7 @@ def get_temp_negative(tmin, tmax, cossim):
     ##############################################
     
     if func == 'cossin':
-        temp = tmin + 0.5*(tmax - tmin) *(1 + torch.cos((0 + cossim)*torch.tensor(np.pi)))  # sine-cosine scheduling
+        temp = tmin + 0.5*(tmax - tmin) *(1 + torch.cos((1 + cossim)*torch.tensor(np.pi)))  # sine-cosine scheduling
     elif func=='cosconst':
         a, b, c = (float(x) for x in exp_params.split('|'))
         temp = torch.ones_like(cossim)
