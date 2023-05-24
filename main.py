@@ -20,34 +20,15 @@ import datetime
 np.random.seed(1234)
 torch.manual_seed(1234)
 
-def get_temp(tmin, tmax, a, b, c, cossim):
-    temp = torch.ones_like(cossim)
-    temp[cossim > 0.0] = a - b * torch.exp(-c*cossim[cossim>0.0])
-    temp[cossim <= 0.0] = tmin + 0.5*(tmax-tmin)*(1+torch.cos((1+cossim[cossim<=0.0])*torch.tensor(np.pi)))
-    return temp
-
 #### Proposed Dual Temp Scheduling ####
 def get_temp_positive(tmin, tmax, cossim):
-    # TRIAL -- HYBRID DECAY
-    # temp = tmin + (tmax - tmin) * torch.sin((1 + cossim)*torch.tensor(np.pi/4))    
-    # return temp
-    # # return tmin
 
+    ###### UNCOMMENT FOR STABILIZATION ###########
     # tmin = tmin + global_step*(tmax-tmin)/epochs
+    ##############################################
 
     if func == 'cossin':
         temp = tmin + 0.5*(tmax - tmin) *(1 + torch.cos((1 + cossim)*torch.tensor(np.pi)))  # sine-cosine scheduling  
-    elif func == 'expo':
-        a, b, c = (float(x) for x in exp_params.split('|'))
-        # print(cossim.shape)
-        # print(torch.tensor([a-b*torch.exp(-torch.tensor(c)*cossim),a-b*torch.exp(torch.tensor(c)*cossim)], requires_grad = False))
-        ltemp = a-b*torch.exp(-c*cossim)
-        ltemp = ltemp.unsqueeze(-1)
-        rtemp = a-b*torch.exp(c*cossim)
-        rtemp = rtemp.unsqueeze(-1)
-        temp,_ = torch.max(torch.cat([ltemp, rtemp], dim = -1), dim = -1)
-        # temp = a - b * torch.exp(-c * cossim) # exponential scheduling
-        # print(temp.shape)
     elif func=='cosconst':
         a, b, c = (float(x) for x in exp_params.split('|'))
         temp = torch.ones_like(cossim)
@@ -59,33 +40,21 @@ def get_temp_positive(tmin, tmax, cossim):
 
 
 def get_temp_negative(tmin, tmax, cossim):
-    # TRIAL -- HYBRID DECAY
-    # a, b, c = (float(x) for x in exp_params.split('|'))
-    # temp = a - b * torch.exp(c * cossim)
-    # return temp
+    
+    ###### UNCOMMENT FOR STABILIZATION ###########
     # tmin = tmin + global_step*(tmax-tmin)/epochs
-
+    ##############################################
+    
     if func == 'cossin':
         temp = tmin + 0.5*(tmax - tmin) *(1 + torch.cos((0 + cossim)*torch.tensor(np.pi)))  # sine-cosine scheduling
-    elif func == 'expo':
-        a, b, c = (float(x) for x in exp_params.split('|'))
-        # print(torch.tensor([a-b*torch.exp(-torch.tensor(c)*cossim),a-b*torch.exp(torch.tensor(c)*cossim)], requires_grad = False))
-        ltemp = a-b*torch.exp(-c*cossim)
-        ltemp = ltemp.unsqueeze(-1)
-        rtemp = a-b*torch.exp(c*cossim)
-        rtemp = rtemp.unsqueeze(-1)
-        temp,_ = torch.max(torch.cat([ltemp, rtemp], dim = -1), dim = -1)
-        # print(temp.shape)
     elif func=='cosconst':
         a, b, c = (float(x) for x in exp_params.split('|'))
         temp = torch.ones_like(cossim)
         temp[cossim > -0.2] = tmax #a - b * torch.exp(-c*cossim[cossim>0.0])
         temp[cossim <= -0.2] = tmin + 0.5*(tmax-tmin)*(1+torch.cos((0.2+cossim[cossim<=-0.2])*torch.tensor(np.pi)/0.8))
-
     else:
         temp = tmax
     return temp
-
 
 def get_mask_negative(batch_size):
         N = 2 * batch_size
@@ -189,7 +158,7 @@ if __name__ == '__main__':
     parser.add_argument('--feature_dim', default=128, type=int, help='Feature dim for latent vector')
     parser.add_argument('--tmin', default=0.07, type=float, help='Min. Temperature used in temp scheduling')
     parser.add_argument('--tmax', default=0.2, type=float, help='Max. Temperature used in temp scheduling')
-    parser.add_argument('--func', default='expo', type=str, choices=['cossin', 'expo', 'cosexpo', 'const', 'cosconst'], help='temperature function to be used')
+    parser.add_argument('--func', default='expo', type=str, choices=['cossin', 'const', 'cosconst'], help='temperature function to be used')
     parser.add_argument('--exp_params', default='0.2|0.1|3.5', type=str, help='parameters of exponential scheduling')
     parser.add_argument('--knn_t', default=0.1, type=float, help='Temperature value for KNN eval')
     parser.add_argument('--k', default=200, type=int, help='Top k most similar images used to predict the label')
@@ -273,18 +242,7 @@ if __name__ == '__main__':
     data_type = 'BAL' if not args.lt else 'LT'
     results = {'learning_rate': [], 'train_loss': [], 'test_acc@1': [], 'test_acc@5': []}
     save_name_pre = '{}-{}-{}-{}-{}-{}-{}-{}NN-{}-{}'.format(args.dataset,data_type, opti, lr, func, tmin, tmax, k, batch_size, epochs).replace('.','p')
-    
-    # save_name_pre = 'Exp_expo-{}-'.format(exp_params).replace('.','p') + save_name_pre
 
-    # save_name_pre = save_name_pre.replace('_','-')
-
-    if func == 'expo':
-        save_name_pre =  save_name_pre + '-{}-'.format(exp_params).replace('|','I').replace('.','p')
-
-    # save_name_pre = 'TEST-' + save_name_pre
-    
-    # if args.lt == True:
-    #     save_name_pre = 'seed1234-pairs_LT[{}]-'.format(args.ratio) + save_name_pre
     today_datetime = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S").replace('/','').replace(' ','').replace(':','')
     
     if not os.path.exists('results'):
